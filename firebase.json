@@ -1,0 +1,14 @@
+{
+	"firestore": {
+		"rules": "firestore.rules",
+		"indexes": "firestore.indexes.json"
+	},
+	"hosting": {
+		"site": "tenaktalk",
+		"source": ".next",
+		"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+		"frameworksBackend": {
+			"region": "us-central1"
+		}
+	}
+}

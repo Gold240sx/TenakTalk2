@@ -1,0 +1,8 @@
+{
+    "[html]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "thunder-client.indentSize": 4,
+    "editor.formatOnSave": true
+}

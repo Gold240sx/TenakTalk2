@@ -1,0 +1,29 @@
+[debug] [2023-11-18T07:50:11.240Z] ----------------------------------------------------------------------
+[debug] [2023-11-18T07:50:11.242Z] Command:       /usr/local/bin/firebase /Users/michaelmartell/.cache/firebase/tools/lib/node_modules/firebase-tools/lib/bin/firebase deploy
+[debug] [2023-11-18T07:50:11.243Z] CLI Version:   11.29.1
+[debug] [2023-11-18T07:50:11.243Z] Platform:      darwin
+[debug] [2023-11-18T07:50:11.243Z] Node Version:  v16.16.0
+[debug] [2023-11-18T07:50:11.248Z] Time:          Sat Nov 18 2023 01:50:11 GMT-0600 (Central Standard Time)
+[debug] [2023-11-18T07:50:11.248Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2023-11-18T07:50:11.392Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2023-11-18T07:50:11.393Z] > authorizing via signed-in user (240designworks@gmail.com)
+[debug] [2023-11-18T07:50:11.394Z] [iam] checking project projects-5d5bf for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2023-11-18T07:50:11.397Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/projects-5d5bf:testIamPermissions [none]
+[debug] [2023-11-18T07:50:11.398Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/projects-5d5bf:testIamPermissions x-goog-quota-user=projects/projects-5d5bf
+[debug] [2023-11-18T07:50:11.399Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/projects-5d5bf:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2023-11-18T07:50:11.642Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/projects-5d5bf:testIamPermissions 200
+[debug] [2023-11-18T07:50:11.645Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/projects-5d5bf:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2023-11-18T07:50:11.646Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/projects-5d5bf [none]
+[debug] [2023-11-18T07:50:11.886Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/projects-5d5bf 200
+[debug] [2023-11-18T07:50:11.889Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/projects-5d5bf {"projectId":"projects-5d5bf","projectNumber":"1083325520247","displayName":"projects","name":"projects/projects-5d5bf","resources":{"hostingSite":"projects-5d5bf"},"state":"ACTIVE","etag":"1_5eac8457-c396-47da-87fc-fb15f7c6cd50"}
+[debug] [2023-11-18T07:50:16.008Z] Error: > Couldn't find any `pages` or `app` directory. Please create one under the project root
+    at findPagesDir (/Users/michaelmartell/Documents/CODE/Web/2023 Projects/TenakTalk/node_modules/next/dist/lib/find-pages-dir.js:42:15)
+    at /Users/michaelmartell/Documents/CODE/Web/2023 Projects/TenakTalk/node_modules/next/dist/build/index.js:237:73
+    at async Span.traceAsyncFn (/Users/michaelmartell/Documents/CODE/Web/2023 Projects/TenakTalk/node_modules/next/dist/trace/trace.js:140:20)
+    at async build (/Users/michaelmartell/Documents/CODE/Web/2023 Projects/TenakTalk/node_modules/next/dist/build/index.js:187:29)
+    at async build (/Users/michaelmartell/.cache/firebase/tools/lib/node_modules/firebase-tools/lib/frameworks/next/index.js:55:5)
+    at async prepareFrameworks (/Users/michaelmartell/.cache/firebase/tools/lib/node_modules/firebase-tools/lib/frameworks/index.js:286:108)
+    at async deploy (/Users/michaelmartell/.cache/firebase/tools/lib/node_modules/firebase-tools/lib/deploy/index.js:53:13)
+[error] 
+[error] Error: An unexpected error has occurred.
