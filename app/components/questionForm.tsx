@@ -4,22 +4,22 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { ExclamationCircleIcon } from "@heroicons/react/20/solid"
 import {
 	Button,
+	Label,
+	TextInput,
 	//   Checkbox,
 	//   FileInput,
-	Label,
 	//   Radio,
 	//   RangeSlider,
 	//   Dropdown,
 	//   Textarea,
-	TextInput,
 	//   ToggleSwitch,
 } from "flowbite-react"
 import * as z from "zod"
 import {
-	// Controller,
-	// FieldErrors,
 	useForm,
 	SubmitHandler,
+	// Controller,
+	// FieldErrors,
 } from "react-hook-form"
 import { createDocument } from "@/app/firebase/storeFunctions"
 

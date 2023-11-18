@@ -52,7 +52,15 @@ const storage = getStorage(app)
 // Timestamp
 const timestamp = serverTimestamp()
 // Analytics
-const analytics = getAnalytics(app)
+const analytics = () => {
+	if (getAnalytics) {
+		const analytics = getAnalytics(app)
+		// Your analytics initialization code here
+		return analytics
+	} else {
+		console.warn("Firebase Analytics is not supported in this environment.")
+	}
+}
 
 export {
 	db,

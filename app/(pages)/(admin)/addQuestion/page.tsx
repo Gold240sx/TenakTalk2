@@ -1,5 +1,5 @@
 import React from "react"
-import QuestionForm from "./questionForm"
+import QuestionForm from "@components/questionForm"
 
 const AddQuestion: React.FC = () => {
 	return (
