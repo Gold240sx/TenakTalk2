@@ -82,6 +82,13 @@ body {
 		display: none;
 	}
 
+	input:focus-within::placeholder,
+	input:focus::placeholder {
+		opacity: 0 !important;
+		color: transparent !important;
+		transition: opacity 150 ms ease-in-out !important;
+	}
+
 	#react-select-3-listbox {
 		max-height: 200px;
 		overflow-y: scroll;
