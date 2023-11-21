@@ -3,11 +3,7 @@
 module.exports = {
 	darkMode: ["class"],
 	content: [
-		"./pages/**/*.{ts,tsx}",
-		"./components/**/*.{ts,tsx}",
-		"./app/**/*.{ts,tsx}",
-		"./src/**/*.{ts,tsx}",
-		"./src/**/*.{js,jsx,ts,tsx}",
+		"./app/**/*.{js,ts,jsx,tsx,mdx}",
 		"node_modules/flowbite-react/**/*.{js,jsx,ts,tsx}",
 	],
 	theme: {

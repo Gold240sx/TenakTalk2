@@ -57,13 +57,13 @@ const createDocument = async ({
 		const docRef = await addDoc(collection(db, collectionName), newDocData)
 		const docId = docRef.id
 		return {
-			status: "success",
+			status: "OK",
 			message: "Document successfully created",
 			docRef,
 			docId,
 		}
 	} catch (error) {
-		return { status: "error", message: "Error creating document", error }
+		return { status: "ERR", message: "Error creating document", error }
 	}
 
 	{

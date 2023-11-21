@@ -21,33 +21,31 @@
 	}
 }
 
-body {
-	color: rgb(var(--foreground-rgb));
-	background: linear-gradient(
-			to bottom,
-			transparent,
-			rgb(var(--background-end-rgb))
-		)
-		rgb(var(--background-start-rgb));
-
+@layer base {
+	body {
+		color: rgb(var(--foreground-rgb));
+		background: linear-gradient(
+				to bottom,
+				transparent,
+				rgb(var(--background-end-rgb))
+			)
+			rgb(var(--background-start-rgb));
+		min-width: 320px;
+	}
 	/* For Webkit-based browsers (Chrome, Safari and Opera) */
+	.no-scroll::-webkit-scrollbars,
+	.no-scrollbar::-webkit-scrollbar,
 	.scrollbar-hide::-webkit-scrollbar {
 		display: none;
 	}
 
 	/* For IE, Edge and Firefox */
+	.no-scroll,
+	.no-scrollbar,
 	.scrollbar-hide {
 		-ms-overflow-style: none; /* IE and Edge */
-		scrollbar-width: none; /* Firefox */
+		scrollbar-width: none; /* Firefox  */
 	}
-
-	color: rgb(var(--foreground-rgb));
-	background: linear-gradient(
-			to bottom,
-			transparent,
-			rgb(var(--background-end-rgb))
-		)
-		rgb(var(--background-start-rgb));
 
 	/* remove steppers from numeric inputs */
 	input::-webkit-outer-spin-button,
@@ -58,6 +56,7 @@ body {
 
 	input[type="number"] {
 		-moz-appearance: textfield;
+		appearance: textfield;
 	}
 
 	/* remove unwanted blue border from react-select components */
@@ -82,17 +81,12 @@ body {
 		display: none;
 	}
 
-	input:focus-within::placeholder,
+	/* input:focus-within::placeholder,
 	input:focus::placeholder {
 		opacity: 0 !important;
 		color: transparent !important;
 		transition: opacity 150 ms ease-in-out !important;
-	}
-
-	#react-select-3-listbox {
-		max-height: 200px;
-		overflow-y: scroll;
-	}
+	} */
 }
 
 @layer components {
@@ -120,6 +114,12 @@ body {
 		font-family: "Mulish", sans-serif;
 	}
 
+	.react-select.react-select-primary .cursor-not-allowed,
+	.react-select__control.react-select__control--is-disabled {
+		pointer-events: auto;
+		cursor: not-allowed !important;
+	}
+
 	/* react-calendar custom sizes */
 	.react-calendar {
 		max-width: 400px;
@@ -140,6 +140,7 @@ body {
 	}
 	.react-calendar abbr:where([title]) {
 		-webkit-text-decoration: none;
+		text-decoration: none;
 	}
 	.react-calendar__navigation {
 		justify-content: space-around;
