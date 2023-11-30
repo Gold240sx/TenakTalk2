@@ -17,7 +17,7 @@ import {
 	Controller,
 	SubmitHandler,
 } from "react-hook-form"
-import { SiteParams } from "@/app/context/library"
+import { SiteParams, BibleRef } from "@library"
 import { createDocument } from "@/app/firebase/storeFunctions"
 import { getAllSpeakers, showAlert } from "@/app/functions/formSupport"
 import { ifError } from "assert"
@@ -31,11 +31,12 @@ const currentDay = getDate(date)
 // Types
 const EmptyArray = z.array(z.never())
 const DropDownObject = z.object({
-	value: z.string(),
-	label: z.string(),
+	value: z.string().or(z.unknown()),
+	label: z.string().or(z.unknown()),
 })
 const DropdownArray = z.array(DropDownObject)
 const QAFormSchema = z.object({
+	showTitle: z.string(),
 	showDate: z
 		.object({
 			MM: z.number().int().min(1).max(12),
@@ -54,9 +55,39 @@ const QAFormSchema = z.object({
 						ref: z.string(),
 					})
 					.optional(),
+				extRef: z
+					.object({
+						book: z.string(),
+						ref: z.string(),
+					})
+					.optional(),
 			})
 		)
 		.optional(),
+	BibleRefs: z.array(
+		z.object({
+			// bible ref
+			book: z.string(),
+			chapters: z
+				.array(
+					z.object({
+						// ref
+						chapter: z.number().nullable(),
+						verses: z
+							.array(
+								z.object({
+									// verse
+									verse: z.number().nullable(),
+									span: z.boolean().optional(),
+									verseTo: z.number().nullable().optional(),
+								})
+							)
+							.optional(),
+					})
+				)
+				.optional(),
+		})
+	),
 	QnA: z.array(
 		z.object({
 			language: z.string().max(2),
@@ -69,6 +100,14 @@ const QAFormSchema = z.object({
 				.url({ message: "Invalid URL" }),
 			// .optional(),
 			// furtherReading: z.array(z.string().optional()).optional(),
+			// bibleRef: z.object({
+			// 	questionRefs: {
+			// 		bibleRefs: [],
+			// 		extRefs: [],
+			// 	},
+			// 	answerRefs: [],
+			// }),
+			extRef: z.object({}),
 			categories: z
 				.array(
 					z.object({
@@ -93,6 +132,264 @@ const QAFormSchema = z.object({
 type DropdownValue = z.infer<typeof DropDownObject>
 type FormValues = z.infer<typeof QAFormSchema>
 
+const BibleRefComponent = ({
+	field,
+	index: bookIndex,
+	key,
+	control,
+	setValue,
+	removeBibleRef,
+	bibleRefFields,
+}: any) => {
+	const [selectedBook, setSelectedBook] = useState(undefined)
+	const [selectedChapter, setSelectedChapter] = useState({
+		value: undefined,
+		label: undefined,
+	})
+	const BookList = [] as any[]
+	BibleRef.forEach((book) => {
+		if (book.name !== "total") {
+			BookList.push({
+				label: book.name,
+				value: book.name.toUpperCase(),
+			})
+		}
+	})
+	return (
+		<div
+			id={`bibleRef-Book-${bookIndex}`}
+			key={field.id}
+			className="grid grid-cols-12">
+			{/* Book */}
+			<div
+				className={`${
+					selectedBook
+						? selectedChapter.value == undefined
+							? "col-span-7"
+							: "col-span-5"
+						: "col-span-11 pr-2"
+				} relative px-1 mb-2`}>
+				{/* <p>{selectedChapter.value}</p> */}
+				<Label
+					htmlFor={`BibleRefs[${bookIndex}].book`}
+					value="Book"
+					className="px-1 text-sm font-semibold leading-6 text-gray-900 "
+				/>
+				<Controller
+					name={`BibleRefs[${bookIndex}].book`}
+					control={control}
+					render={({ field }: any) => (
+						<Select
+							{...field}
+							className="mb-4 rounded-lg bg-[#F9FAFB]"
+							options={BookList}
+							placeholder="Book"
+							isSearchable
+							onChange={(selectedOption) => {
+								field.onChange(selectedOption || "")
+								setSelectedBook(selectedOption?.label) // Update selected book
+							}}
+							styles={
+								{
+									// ... (existing styles)
+								}
+							}
+						/>
+					)}
+				/>
+			</div>
+			{/*  additional questions (mapped array)*/}
+			{selectedBook && (
+				<div
+					id={`chapters-map-container`}
+					className={`${
+						selectedBook
+							? selectedChapter.value == undefined
+								? "col-span-4 pr-2"
+								: "col-span-6 pr-2"
+							: "col-span-11 pr-2"
+					} relative px-1 mb-2`}>
+					{field.chapters.map(
+						(chapter: any, chapterIndex: number) => (
+							<ChapterRefComponent
+								chapter={chapter}
+								chapterIndex={chapterIndex}
+								selectedBook={selectedBook}
+								field={field}
+								bookIndex={bookIndex}
+								control={control}
+								setValue={setValue}
+								selectedChapter={selectedChapter}
+								setSelectedChapter={setSelectedChapter}
+							/>
+						)
+					)}
+				</div>
+			)}
+			<button
+				className="col-span-1 p-1 my-auto text-xl border rounded-lg h-fit aspect-square border-zinc-300"
+				disabled={bibleRefFields.length === 1}
+				onClick={() => {
+					if (bibleRefFields.length > 1) {
+						removeBibleRef(bookIndex)
+					}
+				}}>
+				X
+			</button>
+		</div>
+	)
+}
+
+const ChapterRefComponent = ({
+	selectedBook,
+	chapter,
+	chapterIndex,
+	control,
+	field,
+	setValue,
+	bookIndex,
+	selectedChapter,
+	setSelectedChapter,
+}: {
+	selectedBook: string
+}) => {
+	const ChapterList = BibleRef.flatMap((book) => {
+		if (book.name === selectedBook) {
+			const chapters = Object.entries(book.chapters)
+				.filter(([key]) => key !== "total")
+				.map(([chapterNum]) => ({
+					label: chapterNum,
+					value: chapterNum,
+				}))
+			return chapters
+		}
+		return []
+	})
+	const selectedBookChapters = BibleRef.find(
+		(book) => book.name === selectedBook
+	)?.chapters
+	const selectedChapterVerses = selectedBookChapters
+		? selectedBookChapters[selectedChapter]
+		: []
+
+	return (
+		<div key={`chapter-${chapterIndex}`} className="flex gap-2">
+			<div
+				className={`${
+					selectedChapter.value === undefined ? "w-full" : "w-1/2"
+				}`}>
+				<Label
+					htmlFor={`BibleRefs[${bookIndex}].chapters[${chapterIndex}].chapter`}
+					value="Chapter"
+					className="px-1 text-sm font-semibold leading-6 text-gray-900 "
+				/>
+				<Controller
+					name={`BibleRefs[${bookIndex}].chapters[${chapterIndex}].chapter`}
+					control={control}
+					render={({ field }: any) => (
+						<Select
+							{...field}
+							isSearchable
+							options={ChapterList}
+							className=""
+							placeholder="Chapter"
+							onChange={(selectedOption) => {
+								field.onChange(selectedOption)
+								setSelectedChapter(selectedOption)
+							}}
+						/>
+					)}
+				/>
+			</div>
+			{/* Render verse dropdowns similarly if available */}
+			{selectedChapter.value !== undefined && (
+				<VerseRefComponent
+					field={field}
+					chapterIndex={chapterIndex}
+					bookIndex={bookIndex}
+					control={control}
+					selectedBook={selectedBook}
+					selectedChapter={selectedChapter}
+				/>
+			)}
+		</div>
+	)
+}
+
+const VerseRefComponent = ({
+	field,
+	chapterIndex,
+	bookIndex,
+	control,
+	selectedChapter,
+	selectedBook,
+}) => {
+	const selectedBookData = BibleRef.find((book) => book.name === selectedBook)
+	let VerseList: { label: string; value: string }[] = []
+
+	if (selectedBookData) {
+		const chapterData = selectedBookData.chapters[selectedChapter.value]
+
+		if (chapterData) {
+			VerseList = Array.from({ length: chapterData }, (_, index) => ({
+				label: (index + 1).toString(),
+				value: (index + 1).toString(),
+			}))
+		}
+	}
+
+	return (
+		<div
+			className={`	${
+				selectedChapter.value === undefined ? "w-full" : "w-1/2"
+			}`}>
+			{field.chapters[chapterIndex].verses && (
+				<div>
+					{field.chapters[chapterIndex].verses.map(
+						(verse: any, verseIndex: number) => (
+							<div key={`verse-${verseIndex}`}>
+								<Label
+									htmlFor={`BibleRefs[${bookIndex}].chapters[${chapterIndex}].verses[${verseIndex}].verse`}
+									value={`Verse ${verseIndex + 1}`}
+									className="px-1 text-sm font-semibold leading-6 text-gray-900"
+								/>
+								<Controller
+									name={`BibleRefs[${bookIndex}].chapters[${chapterIndex}].verses[${verseIndex}].verse`}
+									control={control}
+									render={({ field }: any) => (
+										<Select
+											{...field}
+											isSearchable
+											options={VerseList}
+											placeholder="Verse"
+											// onChange={(
+											// 	selectedOption
+											// ) => {
+											// 	field.onChange(
+											// 		selectedOption ||
+											// 			""
+											// 	)
+											// 	setValue(
+											// 		"BibleRef.verse",
+											// 		{
+											// 			label: undefined,
+											// 			value: undefined,
+											// 		}
+											// 	)
+											// }}
+											// ... (verse dropdown logic)
+										/>
+									)}
+								/>
+							</div>
+						)
+					)}
+				</div>
+			)}
+		</div>
+	)
+}
+
 function QuestionAnswerForm() {
 	const [isLoading, setIsLoading] = useState(false)
 	const [filteredSpeakers, setFilteredSpeakers] = useState<DropdownValue[]>(
@@ -100,6 +397,8 @@ function QuestionAnswerForm() {
 	)
 	const [speakerDisabled, setSpeakerDisabled] = useState<Boolean>(true)
 	const [channelIsOther, setChannelIsOther] = useState<Boolean>(false)
+	const [allSpeakers, setAllSpeakers] = useState<DropdownValue[]>([])
+	const [bibleRefs, setBibleRefs] = useState<DropdownValue[]>([{ test: 4 }])
 	const {
 		register,
 		control,
@@ -115,21 +414,47 @@ function QuestionAnswerForm() {
 					question: "",
 					timeStamp: "",
 					categories: [],
+					answer: "",
+					// extRefs: [
+					// 	{
+					// 		question: "",
+					// 		answer: "",
+					// 	},
+					// ],
 					// furtherReading: [""], // saved for later
 					// endorsed: false, // saved for later
 				},
 			],
-			points: [
+			BibleRefs: [
 				{
-					point: "",
-					pointTimeStamp: "",
+					book: undefined,
+					chapters: [
+						{ chapter: undefined, verses: [{ verse: undefined }] },
+					],
 				},
 			],
+			// points: [
+			// 	{
+			// 		point: "",
+			// 		pointTimeStamp: "",
+			// 		bibleRef: {
+			// 			book: "",
+			// 			verse: "",
+			// 		},
+			// 		extRef: "",
+			// 	},
+			// ],
+			showTitle: "",
 			showDate: {
 				DD: currentDay,
 				MM: currentMonth,
 				YY: currentYear,
 			},
+			// bibleRef: {
+			// 	book: "",
+			// 	verse: "",
+			// },
+			// extRef: "",
 			description: "",
 			speaker: [{ value: "", label: "" }],
 			channel: { value: "", label: "" },
@@ -138,17 +463,37 @@ function QuestionAnswerForm() {
 	})
 	const { fields, append, remove } = useFieldArray({
 		name: "QnA",
-		// points: "Points",
 		control,
 	})
+	// const {
+	// 	// rename the values to allow for more than 1 dynamically rendered field
+	// 	// typically would be:  // const { fields, append, remove } = useFieldArray({
+	// 	fields: QnAFields,
+	// 	append: appendQnA,
+	// 	remove: removeQnA,
+	// } = useFieldArray({
+	// 	name: "QnA",
+	// 	control,
+	// })
+
+	const {
+		fields: bibleRefFields,
+		append: appendBibleRef,
+		remove: removeBibleRef,
+	} = useFieldArray({
+		name: "BibleRefs",
+		control,
+	})
+
 	const { categoryOptions, channels } = SiteParams
-	const allSpeakers = getAllSpeakers(channels.selectOptions)
 	const channel = useWatch({ control, name: "channel" }) // Watch for changes in the 'channel' dropdown to update the Speakers dropdown
 	useEffect(() => {
 		// Find the selected channel object
 		const { value } = channel
 		if (value === "Other") {
 			setChannelIsOther(true)
+			const allSpkrs = getAllSpeakers(channels.selectOptions)
+			setAllSpeakers(allSpkrs)
 		} else {
 			setChannelIsOther(false)
 		}
@@ -178,11 +523,13 @@ function QuestionAnswerForm() {
 		// modify the output of the data object to account for the dropdowns.
 		///////////////////////
 		const {
-			description,
+			showTitle,
 			showDate: ShowDate,
-			speaker,
 			channel: Channel,
+			speaker,
+			description,
 			QnA: QnAs,
+			BibleRefs,
 		} = data
 		const speakers = speaker.map((s: DropdownValue) => s.value)
 		const channel = Channel.value
@@ -198,7 +545,9 @@ function QuestionAnswerForm() {
 
 		const newData = {
 			description,
+			BibleRefs,
 			showDate,
+			showTitle,
 			speakers,
 			channel,
 			QnA,
@@ -217,7 +566,7 @@ function QuestionAnswerForm() {
 		}
 		setSpeakerDisabled(true)
 		setIsLoading(false)
-		reset()
+		// reset()
 	}
 
 	// styles for cursor not allowed on speaker when the channel is not defined
@@ -239,6 +588,39 @@ function QuestionAnswerForm() {
 				{/* <div className="grid grid-cols-12 mt-10 gap-x-6 gap-y-8"> */}
 				<div className="grid grid-cols-12 gap-4 col-span-full">
 					{/* start individual inputs */}
+					{/* Show Title */}
+					<div className="mt-auto mb-3 col-span-full md:col-span-6">
+						<div className="flex justify-between px-1">
+							<Label
+								htmlFor="showTitle"
+								value="Show Title"
+								className="block text-sm font-semibold leading-6 text-gray-900"
+							/>
+							<span
+								className="text-sm leading-6 text-gray-500"
+								id="showTitle-required">
+								Required
+							</span>
+						</div>
+						{/*  */}
+						<div className="relative">
+							<TextInput
+								id="showTitle"
+								placeholder="Title of the Show"
+								{...register("showTitle")}
+								className="focus:placeholder:opacity-0"
+							/>
+							{/* )} */}
+							{errors?.showTitle && (
+								<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+									<ExclamationCircleIcon
+										className="w-5 h-5 text-red-500"
+										aria-hidden="true"
+									/>
+								</div>
+							)}
+						</div>
+					</div>
 					{/* show date */}
 					<div className="col-span-5 col-start-8 gap-1 p-3 w-fit">
 						<div className="relative col-span-6 px-1 mb-2">
@@ -299,6 +681,248 @@ function QuestionAnswerForm() {
 							</div>
 						</div>
 					</div>
+					{/* Channel */}
+					<div className="col-span-full md:col-span-6 ">
+						<div className="flex justify-between px-1">
+							<Label
+								htmlFor="channel"
+								value="Channel"
+								className="block text-sm font-semibold leading-6 text-gray-900"
+							/>
+							<span
+								className="text-sm leading-6 text-gray-500"
+								id="channel-required">
+								Required
+							</span>
+						</div>
+						<div className="relative">
+							<Controller
+								name="channel"
+								control={control}
+								render={({ field }: any) => (
+									<Select
+										{...field}
+										// isMulti
+										className="h-full mb-4 rounded-lg bg-[#F9FAFB]"
+										options={channels.selectOptions}
+										placeholder="Channel"
+										isSearchable
+										onChange={(selectedOption) => {
+											return field.onChange(
+												selectedOption || ""
+											)
+										}}
+										styles={{
+											control: (
+												baseStyles: any,
+												state: any
+											) => ({
+												...baseStyles,
+												borderColor: state.isFocused
+													? "#07B6D4"
+													: "#D1D5DB",
+												boxShadow: state.isFocused
+													? "var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) #07B6D4"
+													: "",
+												backgroundColor: "#F9FAFB",
+												borderRadius: "0.375rem",
+												paddingBlock: "2.3px",
+											}),
+										}}
+									/>
+								)}
+							/>
+							{errors?.channel && (
+								<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+									<ExclamationCircleIcon
+										className="w-5 h-5 text-red-500"
+										aria-hidden="true"
+									/>
+								</div>
+							)}
+						</div>
+					</div>
+					{/* Speaker */}
+					<div className="col-span-full md:col-span-6 ">
+						<div className="flex justify-between px-1">
+							<Label
+								htmlFor="speaker"
+								value="Rabbi / Speaker"
+								className="block text-sm font-semibold leading-6 text-gray-900"
+							/>
+							<span
+								className="text-sm leading-6 text-gray-500"
+								id="speaker-required">
+								Required
+							</span>
+						</div>
+						{/*  */}
+						<div className="relative">
+							{channelIsOther && (
+								<Controller
+									name="speaker"
+									control={control}
+									render={({ field }: any) => (
+										<CreatableSelect
+											{...field}
+											isMulti
+											// isDisabled={speakerDisabled} // not needed because we know it's "Other"
+											options={allSpeakers}
+											placeholder="Speaker"
+											isSearchable
+											className={`${styles} ${
+												!channelIsOther && "hidden"
+											} h-full mb-4 rounded-lg bg-[#F9FAFB]`}
+											onChange={(selectedOption) => {
+												return field.onChange(
+													selectedOption || ""
+												)
+											}}
+											styles={{
+												control: (
+													baseStyles: any,
+													state: any
+												) => ({
+													...baseStyles,
+													borderColor: state.isFocused
+														? "#07B6D4"
+														: "#D1D5DB",
+													boxShadow: state.isFocused
+														? "var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) #07B6D4"
+														: "",
+													backgroundColor: "#F9FAFB",
+													borderRadius: "0.375rem",
+													paddingBlock: "2.3px",
+												}),
+											}}
+										/>
+									)}
+								/>
+							)}
+
+							{/* {!channelIsOther && ( */}
+							<Controller
+								name="speaker"
+								control={control}
+								render={({ field }: any) => (
+									<Select
+										{...field}
+										isMulti
+										isDisabled={speakerDisabled}
+										options={filteredSpeakers}
+										placeholder="Speaker"
+										isSearchable
+										className={`${styles} ${
+											channelIsOther && "hidden"
+										} h-full mb-4 rounded-lg bg-[#F9FAFB]`}
+										onChange={(selectedOption) => {
+											return field.onChange(
+												selectedOption || ""
+											)
+										}}
+										styles={{
+											control: (
+												baseStyles: any,
+												state: any
+											) => ({
+												...baseStyles,
+												borderColor: state.isFocused
+													? "#07B6D4"
+													: "#D1D5DB",
+												boxShadow: state.isFocused
+													? "var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) #07B6D4"
+													: "",
+												backgroundColor: "#F9FAFB",
+												borderRadius: "0.375rem",
+												paddingBlock: "2.3px",
+											}),
+										}}
+									/>
+								)}
+							/>
+							{/* )} */}
+							{errors?.channel && (
+								<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+									<ExclamationCircleIcon
+										className="w-5 h-5 text-red-500"
+										aria-hidden="true"
+									/>
+								</div>
+							)}
+						</div>
+					</div>
+					{/* Description */}
+					<div className="col-span-full ">
+						<div className="flex justify-between px-1">
+							<Label
+								htmlFor="description"
+								value="Description"
+								className="block text-sm font-semibold leading-6 text-gray-900"
+							/>
+							<span
+								className="text-sm leading-6 text-gray-500"
+								id="description-required">
+								Required
+							</span>
+						</div>
+						<div className="mt-1">
+							<div className="relative">
+								<Textarea
+									id="description"
+									rows={4}
+									placeholder="Video Description"
+									{...register("description")}
+									className="focus:placeholder:opacity-0"
+								/>
+								{errors?.description && (
+									<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+										<ExclamationCircleIcon
+											className="w-5 h-5 text-red-500"
+											aria-hidden="true"
+										/>
+									</div>
+								)}
+							</div>
+							{errors?.description?.message && (
+								<p className="pl-2 mt-2 text-sm text-red-400">
+									{errors?.description.message}
+								</p>
+							)}
+						</div>
+					</div>
+					{/* Show Title */}
+					{/* <div className="col-span-full md:col-span-6 ">
+						<div className="flex justify-between px-1">
+							<Label
+								htmlFor="showTitle"
+								value="Show Title"
+								className="block text-sm font-semibold leading-6 text-gray-900"
+							/>
+							<span
+								className="text-sm leading-6 text-gray-500"
+								id="showTitle-required">
+								Required
+							</span>
+						</div>
+						
+						<div className="relative">
+							<TextInput
+								id="showTitle"
+								placeholder="Title of the Show"
+								{...register("showTitle")}
+								className="focus:placeholder:opacity-0"
+							/>
+					
+							{errors?.showTitle && (
+								<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+									<ExclamationCircleIcon
+										className="w-5 h-5 text-red-500"
+										aria-hidden="true"
+									/>
+								</div>
+							)}
+						</div>
+					</div> */}
 					{/* Dynamic QnA's*/}
 					<div className="rounded-xl col-span-full sm:bg-white sm:p-3">
 						{fields.map((field, index) => {
@@ -389,7 +1013,7 @@ function QuestionAnswerForm() {
 												<div className="flex justify-between px-1">
 													<Label
 														htmlFor={`timeStamp-${index}`}
-														value="Time Stamp"
+														value="Answer Time Stamp"
 														className="block text-sm font-semibold leading-6 text-gray-900"
 													/>
 													<span
@@ -548,6 +1172,60 @@ function QuestionAnswerForm() {
 												)}
 											</div>
 										</section>
+										{/* Answer */}
+										<section className="col-span-full ">
+											<div className="relative flex flex-col gap-1 section">
+												<div className="flex justify-between px-1">
+													<Label
+														htmlFor={`answer-${index}`}
+														value="Answer"
+														className="block text-sm font-semibold leading-6 text-gray-900"
+													/>
+													<span
+														className="text-sm leading-6 text-gray-500"
+														id={`answer-${index}-required`}>
+														Required
+													</span>
+												</div>
+												<div className="relative mt-2">
+													<Textarea
+														// type="text"
+														id={`answer-${index}`}
+														// rows={2}
+														className="block -translate-y-[8px] no-scrollbar w-full py-4 bg-[#F9FAFB] h-fit rounded-lg border-0 text-lg  px-3.5   text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-500 focus:placeholder:opacity-0 focus:ring-2 focus:ring-inset focus:ring-[#07B6D4] sm:leading-6"
+														placeholder="Your Answer"
+														{...register(
+															`QnA.${index}.answer` as const,
+															{
+																required: false,
+															}
+														)}
+													/>
+													{errors?.QnA?.[index]
+														?.answer && (
+														<div className="absolute -translate-y-[8px]  inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+															<ExclamationCircleIcon
+																className="w-5 h-5 text-red-500"
+																aria-hidden="true"
+															/>
+														</div>
+													)}
+												</div>
+												{errors?.QnA?.[index]
+													?.answer && (
+													<p
+														className="pl-2 mt-2 text-sm -translate-y-[8px] text-red-600/60"
+														id="phoneNo-error">
+														{/* {
+															errors?.QnA?.[index]
+																?.question
+																?.message
+														} */}
+														Invalid question
+													</p>
+												)}
+											</div>
+										</section>
 										<Button
 											type="button"
 											disabled={fields.length === 1}
@@ -572,6 +1250,12 @@ function QuestionAnswerForm() {
 										question: "",
 										timeStamp: "",
 										language: "EN",
+										answer: "",
+										bibleRef: {
+											book: "",
+											verse: "",
+										},
+										extRef: "",
 										categories: [],
 									})
 								}}>
@@ -579,232 +1263,49 @@ function QuestionAnswerForm() {
 							</Button>
 						</div>
 					</div>
-					{/* Channel */}
-					<div className="col-span-full md:col-span-6 ">
-						<div className="flex justify-between px-1">
+					{/* Bible Verse Picker (Array)*/}
+					<div className="col-span-full">
+						<div className="grid grid-cols-12 rounded-xl sm:bg-white sm:p-3">
 							<Label
-								htmlFor="channel"
-								value="Channel"
-								className="block text-sm font-semibold leading-6 text-gray-900"
+								value="Video Bible Refs Array"
+								className="text-2xl font-semibold col-span-full"
 							/>
-							<span
-								className="text-sm leading-6 text-gray-500"
-								id="channel-required">
-								Required
-							</span>
-						</div>
-						<div className="relative">
-							<Controller
-								name="channel"
-								control={control}
-								render={({ field }: any) => (
-									<Select
-										{...field}
-										// isMulti
-										className="h-full mb-4 rounded-lg bg-[#F9FAFB]"
-										options={channels.selectOptions}
-										placeholder="Channel"
-										isSearchable
-										onChange={(selectedOption) => {
-											return field.onChange(
-												selectedOption || ""
-											)
-										}}
-										styles={{
-											control: (
-												baseStyles: any,
-												state: any
-											) => ({
-												...baseStyles,
-												borderColor: state.isFocused
-													? "#07B6D4"
-													: "#D1D5DB",
-												boxShadow: state.isFocused
-													? "var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) #07B6D4"
-													: "",
-												backgroundColor: "#F9FAFB",
-												borderRadius: "0.375rem",
-												paddingBlock: "2.3px",
-											}),
-										}}
+							{/* dynamic bible refs */}
+							<section className="p-4 col-span-full">
+								{bibleRefFields.map((field, index) => (
+									<BibleRefComponent
+										bibleRefFields={bibleRefFields}
+										removeBibleRef={removeBibleRef}
+										control={control}
+										setValue={setValue}
+										field={field}
+										index={index}
+										key={index}
 									/>
-								)}
-							/>
-							{errors?.channel && (
-								<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-									<ExclamationCircleIcon
-										className="w-5 h-5 text-red-500"
-										aria-hidden="true"
-									/>
-								</div>
-							)}
-						</div>
-					</div>
-					{/* Speaker */}
-					<div className="col-span-full md:col-span-6 ">
-						<div className="flex justify-between px-1">
-							<Label
-								htmlFor="speaker"
-								value="Rabbi / Speaker"
-								className="block text-sm font-semibold leading-6 text-gray-900"
-							/>
-							<span
-								className="text-sm leading-6 text-gray-500"
-								id="speaker-required">
-								Required
-							</span>
-						</div>
-						{/* <div className="mt-1">
-							<div className="relative">
-								<TextInput
-									id="speaker"
-									placeholder="Speaker"
-									{...register("speaker")}
-									className="focus:placeholder:opacity-0"
-								/>
-								{errors?.speaker && (
-									<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-										<ExclamationCircleIcon
-											className="w-5 h-5 text-red-500"
-											aria-hidden="true"
-										/>
-									</div>
-								)}
+								))}
+							</section>
+							<div className="p-3 col-span-full">
+								<Button
+									type="button"
+									className="flex ml-auto"
+									onClick={() => {
+										appendBibleRef({
+											book: undefined,
+											chapters: [
+												{
+													chapter: undefined,
+													verses: [
+														{
+															verse: undefined,
+														},
+													],
+												},
+											],
+										})
+									}}>
+									Add a Bible Reference
+								</Button>
 							</div>
-							{errors?.speaker?.message && (
-								<p className="pl-2 mt-2 text-sm text-red-400">
-									{errors?.speaker.message}
-								</p>
-							)}
-						</div> */}
-						<div className="relative">
-							{channelIsOther && (
-								<Controller
-									name="speaker"
-									control={control}
-									render={({ field }: any) => (
-										<CreatableSelect
-											{...field}
-											isMulti
-											isDisabled={speakerDisabled}
-											options={allSpeakers && allSpeakers}
-											placeholder="Speaker"
-											isSearchable
-											className={`${styles} h-full mb-4 rounded-lg bg-[#F9FAFB]`}
-											onChange={(selectedOption) => {
-												return field.onChange(
-													selectedOption || ""
-												)
-											}}
-											styles={{
-												control: (
-													baseStyles: any,
-													state: any
-												) => ({
-													...baseStyles,
-													borderColor: state.isFocused
-														? "#07B6D4"
-														: "#D1D5DB",
-													boxShadow: state.isFocused
-														? "var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) #07B6D4"
-														: "",
-													backgroundColor: "#F9FAFB",
-													borderRadius: "0.375rem",
-													paddingBlock: "2.3px",
-												}),
-											}}
-										/>
-									)}
-								/>
-							)}
-
-							{!channelIsOther && (
-								<Controller
-									name="speaker"
-									control={control}
-									render={({ field }: any) => (
-										<Select
-											{...field}
-											isMulti
-											isDisabled={speakerDisabled}
-											options={filteredSpeakers}
-											placeholder="Speaker"
-											isSearchable
-											className={`${styles} h-full mb-4 rounded-lg bg-[#F9FAFB]`}
-											onChange={(selectedOption) => {
-												return field.onChange(
-													selectedOption || ""
-												)
-											}}
-											styles={{
-												control: (
-													baseStyles: any,
-													state: any
-												) => ({
-													...baseStyles,
-													borderColor: state.isFocused
-														? "#07B6D4"
-														: "#D1D5DB",
-													boxShadow: state.isFocused
-														? "var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) #07B6D4"
-														: "",
-													backgroundColor: "#F9FAFB",
-													borderRadius: "0.375rem",
-													paddingBlock: "2.3px",
-												}),
-											}}
-										/>
-									)}
-								/>
-							)}
-							{errors?.channel && (
-								<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-									<ExclamationCircleIcon
-										className="w-5 h-5 text-red-500"
-										aria-hidden="true"
-									/>
-								</div>
-							)}
-						</div>
-					</div>
-
-					{/* Description */}
-					<div className="col-span-full ">
-						<div className="flex justify-between px-1">
-							<Label
-								htmlFor="description"
-								value="Description"
-								className="block text-sm font-semibold leading-6 text-gray-900"
-							/>
-							<span
-								className="text-sm leading-6 text-gray-500"
-								id="description-required">
-								Required
-							</span>
-						</div>
-						<div className="mt-1">
-							<div className="relative">
-								<Textarea
-									id="description"
-									rows={4}
-									placeholder="Video Description"
-									{...register("description")}
-									className="focus:placeholder:opacity-0"
-								/>
-								{errors?.description && (
-									<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-										<ExclamationCircleIcon
-											className="w-5 h-5 text-red-500"
-											aria-hidden="true"
-										/>
-									</div>
-								)}
-							</div>
-							{errors?.description?.message && (
-								<p className="pl-2 mt-2 text-sm text-red-400">
-									{errors?.description.message}
-								</p>
-							)}
 						</div>
 					</div>
 				</div>

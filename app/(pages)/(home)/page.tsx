@@ -1,6 +1,7 @@
 import React from "react"
 import Image from "next/image"
 // import Link from "next/link"
+import { BibleRef } from "@/app/context/library"
 
 export default function Home() {
 	return (
@@ -13,6 +14,12 @@ export default function Home() {
 				height={37}
 				priority
 			/>
+			Malachi Christian verse count Chapter: 4 Malachi Jewish verse count:
+			<br />
+			<br />
+			Chapter 3:
+			{/* {BiblicalRef.find((book) => book.name === "Malachi")?.chapters[3]} */}
+			{BibleRef.find((book) => book.name === "Genesis")?.chapters[8]}
 		</section>
 	)
 }
